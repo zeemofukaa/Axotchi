@@ -63,7 +63,7 @@ If Windows shows a security warning:
 ```text
 Assets/   -> sprites, UI, audio
 Scenes/   -> Godot scenes
-Scripts/  -> game logic
+Script/  -> game logic
 Font/     -> fonts/UI resources
 ```
 
