@@ -4,6 +4,7 @@ signal feed_pressed
 signal play_pressed
 signal sleep_pressed
 signal reset_pressed
+signal button_clicked
 
 @onready var hunger_bar    := $Control/StatsSlot/HungerBar
 @onready var energy_bar    := $Control/StatsSlot/EnergyBar
@@ -21,18 +22,22 @@ signal reset_pressed
 @onready var energy_warn    := $Control/EnergyWarning
 @onready var happiness_warn := $Control/HappinessWarning
 
+@onready var streak_label := $Control/StreakFrame/StreakLabel
+
 func _ready():
 	feed_btn.pressed.connect(_on_feed)
 	play_btn.pressed.connect(_on_play)
 	sleep_btn.pressed.connect(_on_sleep)
 	reset_btn.pressed.connect(_on_reset)
 	critical_overlay.visible = false 
+	critical_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	hunger_warn.visible = false
 	energy_warn.visible = false
 	happiness_warn.visible = false
 
 func _on_reset():
+	emit_signal("button_clicked") 
 	critical_overlay.visible = false
 	emit_signal("reset_pressed")  
 	hunger_warn.visible = false
@@ -40,14 +45,17 @@ func _on_reset():
 	happiness_warn.visible = false
 	
 func _on_feed():
+	emit_signal("button_clicked") 
 	_pop_button(feed_btn)
 	emit_signal("feed_pressed")
 
 func _on_play():
+	emit_signal("button_clicked") 
 	_pop_button(play_btn)
 	emit_signal("play_pressed")
 
 func _on_sleep():
+	emit_signal("button_clicked") 
 	_pop_button(sleep_btn)
 	emit_signal("sleep_pressed")
 
@@ -91,7 +99,7 @@ func set_sleeping(is_sleeping: bool) -> void:
 	sleep_btn.text = "Sleep"
 	feed_btn.disabled = is_sleeping
 	play_btn.disabled = is_sleeping
-	sleep_btn.disabled = false   
+	sleep_btn.disabled = is_sleeping  
 
 func set_critical() -> void:
 	hunger_warn.visible = false
@@ -151,3 +159,10 @@ func _update_warnings(hunger: float, energy: float, happiness: float) -> void:
 			_pop_warning(happiness_warn)
 	else:
 		happiness_warn.visible = false
+
+#--------------------------
+# DAY STREAK
+#--------------------------
+func update_streak(streak: int) -> void:
+	$Control/StreakFrame.visible = streak > 0
+	streak_label.text = str(streak)

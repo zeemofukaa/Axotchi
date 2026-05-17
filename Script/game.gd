@@ -11,6 +11,7 @@ extends Node2D
 @onready var hunger_warning     := $UI/Control/HungerWarning
 @onready var happiness_warning  := $UI/Control/HappinessWarning
 @onready var stats_slot         := $UI/Control/StatsSlot
+@onready var streak_frame       := $UI/Control/StreakFrame
 @onready var sleep_bar          := $Axolotl/Control/SleepBar
 @onready var bg_music           := $BgMusic
 @onready var sfx_eat            := $SfxEat
@@ -18,6 +19,8 @@ extends Node2D
 @onready var sfx_sleep          := $SfxSleep
 @onready var sfx_full           := $SfxFull
 @onready var sfx_squish         := $SfxSquish
+@onready var sfx_ded            := $SfxDed
+@onready var sfx_click          := $SfxClick
 
 # --------------------
 # CONSTANTS & VARS
@@ -28,15 +31,36 @@ const MUSIC_DUCK_VOL:   float = -12.0
 var _is_night:  bool  = false
 var _duck_tween: Tween
 
+var _loading: bool = true
+
+# --------------------
+# NOTIFICATION
+# --------------------
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		axolotl._save_game()
+		get_tree().quit()
 # --------------------
 # READY
 # --------------------
 func _ready() -> void:
+	get_tree().set_auto_accept_quit(false)
+	axolotl.streak_changed.connect(ui.update_streak)
+	ui.button_clicked.connect(play_sfx_click)
 	axolotl.stats_changed.connect(ui.update_stats)
 	axolotl.state_changed.connect(_on_axolotl_state_changed)
 	axolotl.entered_critical.connect(ui.set_critical)
+	axolotl.entered_critical.connect(play_sfx_ded)
 	ui.reset_pressed.connect(axolotl.reset_pet)
 	_check_time_of_day()
+	ui.update_streak(axolotl.day_streak)
+	call_deferred("_set_loading_done")
+
+# --------------------
+# LOADING
+# --------------------
+func _set_loading_done() -> void:
+	_loading = false
 
 # --------------------
 # PROCESS
@@ -83,6 +107,7 @@ func _apply_time_of_day() -> void:
 		device_shell.modulate  = Color(0.79,  0.792, 0.959)
 		stats_slot.modulate    = Color(0.965, 0.852, 0.96)
 		sleep_bar.modulate     = Color(0.951, 0.783, 0.981)
+		streak_frame.modulate     = Color(0.978, 0.885, 0.955, 1.0)
 		energy_warning.modulate    = Color(0.53,  0.77,  0.832)
 		hunger_warning.modulate    = Color(0.951, 0.76,  0.751)
 		happiness_warning.modulate = Color(0.744, 0.731, 0.931)
@@ -92,6 +117,7 @@ func _apply_time_of_day() -> void:
 		device_shell.modulate  = Color(1.0, 1.0, 1.0)
 		stats_slot.modulate    = Color(1.0, 1.0, 1.0)
 		sleep_bar.modulate     = Color(1.0, 1.0, 1.0)
+		streak_frame.modulate     = Color(1.0, 1.0, 1.0)
 		energy_warning.modulate    = Color(1.0, 1.0, 1.0)
 		hunger_warning.modulate    = Color(1.0, 1.0, 1.0)
 		happiness_warning.modulate = Color(1.0, 1.0, 1.0)
@@ -164,6 +190,18 @@ func play_sfx_squish() -> void:
 		_unduck_music(sfx_squish.stream.get_length())
 	else:
 		_unduck_music(1.0)
+		
+func play_sfx_ded() -> void:
+	_duck_music()
+	sfx_ded.play()
+	if sfx_ded.stream:
+		_unduck_music(sfx_ded.stream.get_length())
+	else:
+		_unduck_music(2.0)
+
+func play_sfx_click() -> void:
+	sfx_click.play()
+
 # --------------------
 # STATE CHANGES
 # --------------------
@@ -171,18 +209,29 @@ func _on_axolotl_state_changed(new_state) -> void:
 	match new_state:
 		axolotl.State.SLEEPING:
 			ui.set_sleeping(true)
-			play_sfx_sleep()
+			if not _loading:
+				play_sfx_sleep()
 		axolotl.State.IDLE:
 			ui.set_sleeping(false)
 			ui.set_busy(false)
 			if axolotl.energy <= 20.0:
 				ui.play_btn.disabled = true
 		axolotl.State.EATING:
-			play_sfx_eat()
+			ui.set_busy(true)
+			if not _loading:  
+				play_sfx_eat()
 		axolotl.State.PLAYING:
-			play_sfx_play()
+			ui.set_busy(true)  
+			if not _loading:
+				play_sfx_play()
 		axolotl.State.FULL:
-			play_sfx_full()
+			ui.set_busy(true) 
+			if not _loading: 
+				play_sfx_full()
+		axolotl.State.CRITICAL:
+			if not _loading:
+				play_sfx_ded()
+			ui.set_critical()
 		_:
 			ui.set_busy(true)
 
@@ -202,3 +251,11 @@ func _input(event: InputEvent) -> void:
 			_is_night = !_is_night
 			_apply_time_of_day()
 			axolotl.set_night_mode(_is_night)
+		if event.keycode == KEY_W:
+					if axolotl.state == axolotl.State.SLEEPING:
+						sfx_sleep.stop()
+						_unduck_music(0.0)
+						axolotl.is_busy = false
+						axolotl._sleep_min_timer = 0.0
+						axolotl._modify_stats(0.0, axolotl.SLEEP_ENERGY, 0.0)
+						axolotl.change_state(axolotl.State.IDLE)

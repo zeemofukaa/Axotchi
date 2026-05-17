@@ -35,7 +35,11 @@ var base_Y         := 0.0
 @export var float_strength := 4.0
 
 var _sleep_min_timer: float = 0.0
+var _sleep_start_time: float = 0.0
 const SLEEP_MIN_DURATION: float = 1200.0
+
+var day_streak: int = 0
+var _last_save_date: String = ""
 
 # ── Stats ─────────────────────────────────────────────────────────────────
 var hunger:    float = 80.0
@@ -59,6 +63,7 @@ const SLEEP_ENERGY:   float = 40.0
 signal stats_changed(hunger: float, energy: float, happiness: float)
 signal entered_critical
 signal state_changed(new_state: State)
+signal streak_changed(streak: int)
 
 # --------------------
 # READY
@@ -172,6 +177,7 @@ func sleep() -> void:
 		return
 	is_busy = true
 	_sleep_min_timer = SLEEP_MIN_DURATION
+	_sleep_start_time = Time.get_unix_time_from_system()
 	change_state(State.SLEEPING)
 
 # --------------------
@@ -194,6 +200,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				is_busy = false
 				_modify_stats(0.0, SLEEP_ENERGY, 0.0)
 				change_state(State.IDLE)
+				get_tree().current_scene.sfx_sleep.stop()
+				get_tree().current_scene._unduck_music(0.0)
 			else:
 				$Control/SleepLabel.text = "💤 Still sleeping..."
 		elif state != State.CRITICAL and is_hovering:
@@ -221,6 +229,8 @@ func _modify_stats(d_hunger: float, d_energy: float, d_happiness: float) -> void
 
 func _check_critical() -> void:
 	if hunger <= STAT_MIN and energy <= STAT_MIN and happiness <= STAT_MIN:
+		day_streak = 0
+		emit_signal("streak_changed", day_streak)
 		is_busy = true
 		$StatDecayTimer.stop()
 		change_state(State.CRITICAL)
@@ -313,7 +323,12 @@ func _save_game() -> void:
 	config.set_value("stats", "energy",    energy)
 	config.set_value("stats", "happiness", happiness)
 	config.set_value("meta",  "state",     state)
+	config.set_value("meta",  "timestamp", Time.get_unix_time_from_system())
+	config.set_value("meta", "day_streak",      day_streak)
+	config.set_value("meta", "last_save_date",  _last_save_date)
+	config.set_value("meta", "sleep_start_time", _sleep_start_time)
 	config.save(SAVE_PATH)
+	
 
 func _load_game() -> void:
 	var config := ConfigFile.new()
@@ -322,17 +337,81 @@ func _load_game() -> void:
 	hunger    = config.get_value("stats", "hunger",    80.0)
 	energy    = config.get_value("stats", "energy",    80.0)
 	happiness = config.get_value("stats", "happiness", 80.0)
-	if hunger <= 0.0 or energy <= 0.0 or happiness <= 0.0:
-		hunger = 80.0
-		energy = 80.0
-		happiness = 80.0
-		_save_game()
-		return
+	
+	_sleep_start_time = config.get_value("meta", "sleep_start_time", 0.0)
+
+	day_streak      = config.get_value("meta", "day_streak",     0)
+	_last_save_date = config.get_value("meta", "last_save_date", "")
+	_check_day_streak()
+
+	var saved_time: float = config.get_value("meta", "timestamp", 0.0)
+	if saved_time > 0.0:
+		var elapsed: float    = Time.get_unix_time_from_system() - saved_time
+		var ticks: int        = int(elapsed / 30.0)
+		var capped_ticks: int = min(ticks, 2880)
+		if ticks > 0:
+			hunger    = clampf(hunger    - HUNGER_DECAY    * capped_ticks, STAT_MIN, STAT_MAX)
+			energy    = clampf(energy    - ENERGY_DECAY    * capped_ticks, STAT_MIN, STAT_MAX)
+			happiness = clampf(happiness - HAPPINESS_DECAY * capped_ticks, STAT_MIN, STAT_MAX)
+
 	var saved_state: int = config.get_value("meta", "state", State.IDLE)
-	if saved_state == State.CRITICAL:
+	if saved_state == State.CRITICAL or hunger <= STAT_MIN or energy <= STAT_MIN or happiness <= STAT_MIN:
 		state   = State.CRITICAL
 		is_busy = true
 		$StatDecayTimer.stop()
-		emit_signal("entered_critical")
+		call_deferred("_emit_critical")
+	elif saved_state == State.SLEEPING:
+		state   = State.SLEEPING
+		is_busy = true
+		if _sleep_start_time > 0.0:
+			var slept_so_far: float = Time.get_unix_time_from_system() - _sleep_start_time
+			_sleep_min_timer = maxf(SLEEP_MIN_DURATION - slept_so_far, 0.0)
+		else:
+			_sleep_min_timer = 0.0
+		call_deferred("_emit_sleeping")
 	else:
 		state = State.IDLE
+
+	emit_signal("stats_changed", hunger, energy, happiness)
+
+func _emit_sleeping() -> void:
+	update_animation()
+	_stop_bob()
+	$Control/SleepLabel.visible     = true
+	$Control/SleepBar.visible       = true
+	$Control/SleepBarShadow.visible = true
+	$Control/SleepLabel.text        = "click me to wake!" if _sleep_min_timer <= 0.0 \
+									  else "wake me after (%ds)" % ceili(_sleep_min_timer)
+	emit_signal("state_changed", State.SLEEPING)
+
+func _emit_critical() -> void:
+	_stop_bob()
+	update_animation()
+	emit_signal("entered_critical")
+
+# --------------------
+# DAY STREAK
+# --------------------
+func _check_day_streak() -> void:
+	var today := _get_today_string()
+	if _last_save_date == "":
+		_last_save_date = today
+		return
+	if today == _last_save_date:
+		return
+	var last := Time.get_datetime_dict_from_datetime_string(_last_save_date, false)
+	var now  := Time.get_datetime_dict_from_system()
+	var last_unix := Time.get_unix_time_from_datetime_dict(last)
+	var now_unix  := Time.get_unix_time_from_datetime_dict(now)
+	var days_passed := int((now_unix - last_unix) / 86400.0)
+	if days_passed == 1:
+		day_streak += 1 
+	elif days_passed > 1:
+		day_streak = 0 
+	_last_save_date = today
+	
+	emit_signal("streak_changed", day_streak)
+
+func _get_today_string() -> String:
+	var d := Time.get_datetime_dict_from_system()
+	return "%d-%02d-%02d" % [d["year"], d["month"], d["day"]]

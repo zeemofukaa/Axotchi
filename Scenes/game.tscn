@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://dk8c327u2ltqu"]
+[gd_scene load_steps=15 format=3 uid="uid://dk8c327u2ltqu"]
 
 [ext_resource type="PackedScene" uid="uid://dwmidjcfj1g02" path="res://Scenes/axolotl.tscn" id="1_ebmjs"]
 [ext_resource type="Script" uid="uid://uri6be48nekc" path="res://Script/game.gd" id="1_wrm1d"]
@@ -11,7 +11,9 @@
 [ext_resource type="AudioStream" uid="uid://mklnklmslhcw" path="res://Assets/Audio/sfx_play.mp3" id="9_rku1e"]
 [ext_resource type="AudioStream" uid="uid://btsv31kka5kaq" path="res://Assets/Audio/sfx_sleep.mp3" id="10_rfjv2"]
 [ext_resource type="AudioStream" uid="uid://c7hbfpxvgdspk" path="res://Assets/Audio/sfx_full.mp3" id="11_1phco"]
-[ext_resource type="AudioStream" uid="uid://cd161fapbxloo" path="res://Assets/Audio/sfx_squish.mp3" id="12_rku1e"]
+[ext_resource type="AudioStream" uid="uid://2w85ktcro35t" path="res://Assets/Audio/sfx_squish.mp3" id="12_rku1e"]
+[ext_resource type="AudioStream" uid="uid://b6ygwvra4np7d" path="res://Assets/Audio/sfx_ded.mp3" id="13_rfjv2"]
+[ext_resource type="AudioStream" uid="uid://8r1ivqhlkaih" path="res://Assets/Audio/sfx_click.mp3" id="14_1phco"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_wrm1d")
@@ -60,6 +62,12 @@ stream = ExtResource("11_1phco")
 
 [node name="SfxSquish" type="AudioStreamPlayer2D" parent="."]
 stream = ExtResource("12_rku1e")
+
+[node name="SfxDed" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("13_rfjv2")
+
+[node name="SfxClick" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("14_1phco")
 
 [connection signal="feed_pressed" from="UI" to="." method="_on_ui_feed"]
 [connection signal="play_pressed" from="UI" to="." method="_on_ui_play"]
