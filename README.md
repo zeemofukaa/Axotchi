@@ -13,6 +13,7 @@ Take care of a sleepy little axolotl by feeding it, letting it rest, playing wit
 - Mood-based dialogue bubbles
 - Dynamic background tinting based on overall stats
 - Day/night UI transitions
+- Day streak system
 - Squish interaction with reactions
 - Hover interactions and idle animations
 - Cozy pastel pixel aesthetic
@@ -48,6 +49,8 @@ If Windows shows a security warning:
 <img width="400" alt="Screenshot 2026-05-07 223029" src="https://github.com/user-attachments/assets/281cbd91-4d5a-438e-8078-0589b68c9bdf" />
 <img width="400" alt="Screenshot 2026-05-07 234036" src="https://github.com/user-attachments/assets/6922650b-a730-4d80-baa5-3742a8ae22a5" />
 <img width="400" alt="Screenshot 2026-05-07 234122" src="https://github.com/user-attachments/assets/8122a749-3f4f-4b66-8852-acf95253b749" />
+<img width="400" alt="Screenshot 2026-05-17 210009" src="https://github.com/user-attachments/assets/0f6b2644-5eb1-4581-a3e3-e75704508460" />
+
 
 -------------------------------------------------------------------------------------
 ✦ **Controls**
@@ -67,6 +70,18 @@ Script/  -> game logic
 Font/     -> fonts/UI resources
 ```
 
+-------------------------------------------------------------------------------------
+✦ **Changelog**
+
+### v1.1.0
+- Day streak system
+- Offline progression
+- Persistent sleep state
+- Added SFX improvements
+- Bug fixes
+
+### v1.0.0
+- Initial release
 -------------------------------------------------------------------------------------
 
 ✦ **Author**
