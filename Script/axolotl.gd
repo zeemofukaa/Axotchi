@@ -339,28 +339,35 @@ func _load_game() -> void:
 	happiness = config.get_value("stats", "happiness", 80.0)
 	
 	_sleep_start_time = config.get_value("meta", "sleep_start_time", 0.0)
-
 	day_streak      = config.get_value("meta", "day_streak",     0)
 	_last_save_date = config.get_value("meta", "last_save_date", "")
-	_check_day_streak()
 
 	var saved_time: float = config.get_value("meta", "timestamp", 0.0)
 	if saved_time > 0.0:
+		const OFFLINE_DECAY_MULT: float = 0.017
 		var elapsed: float    = Time.get_unix_time_from_system() - saved_time
 		var ticks: int        = int(elapsed / 30.0)
 		var capped_ticks: int = min(ticks, 2880)
 		if ticks > 0:
-			hunger    = clampf(hunger    - HUNGER_DECAY    * capped_ticks, STAT_MIN, STAT_MAX)
-			energy    = clampf(energy    - ENERGY_DECAY    * capped_ticks, STAT_MIN, STAT_MAX)
-			happiness = clampf(happiness - HAPPINESS_DECAY * capped_ticks, STAT_MIN, STAT_MAX)
+			hunger    = clampf(hunger    - HUNGER_DECAY   * OFFLINE_DECAY_MULT  * capped_ticks, STAT_MIN, STAT_MAX)
+			energy    = clampf(energy    - ENERGY_DECAY   * OFFLINE_DECAY_MULT * capped_ticks, STAT_MIN, STAT_MAX)
+			happiness = clampf(happiness - HAPPINESS_DECAY * OFFLINE_DECAY_MULT * capped_ticks, STAT_MIN, STAT_MAX)
 
 	var saved_state: int = config.get_value("meta", "state", State.IDLE)
-	if saved_state == State.CRITICAL or hunger <= STAT_MIN or energy <= STAT_MIN or happiness <= STAT_MIN:
+	var is_critical := saved_state == State.CRITICAL or \
+						(hunger <= STAT_MIN and 
+						energy <= STAT_MIN and 
+						happiness <= STAT_MIN)
+
+	if is_critical:
+		day_streak      = 0
+		_last_save_date = _get_today_string()
 		state   = State.CRITICAL
 		is_busy = true
 		$StatDecayTimer.stop()
 		call_deferred("_emit_critical")
 	elif saved_state == State.SLEEPING:
+		_check_day_streak()  # pet alive, safe to check
 		state   = State.SLEEPING
 		is_busy = true
 		if _sleep_start_time > 0.0:
@@ -370,19 +377,10 @@ func _load_game() -> void:
 			_sleep_min_timer = 0.0
 		call_deferred("_emit_sleeping")
 	else:
+		_check_day_streak()  # pet alive, safe to check
 		state = State.IDLE
 
 	emit_signal("stats_changed", hunger, energy, happiness)
-
-func _emit_sleeping() -> void:
-	update_animation()
-	_stop_bob()
-	$Control/SleepLabel.visible     = true
-	$Control/SleepBar.visible       = true
-	$Control/SleepBarShadow.visible = true
-	$Control/SleepLabel.text        = "click me to wake!" if _sleep_min_timer <= 0.0 \
-									  else "wake me after (%ds)" % ceili(_sleep_min_timer)
-	emit_signal("state_changed", State.SLEEPING)
 
 func _emit_critical() -> void:
 	_stop_bob()
