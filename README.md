@@ -73,6 +73,12 @@ Font/     -> fonts/UI resources
 -------------------------------------------------------------------------------------
 ✦ **Changelog**
 
+### v1.1.1
+- Fixed offline progression calculations
+- Fixed day streak persistence/reset logic
+- Improved save consistency across sessions
+- Minor bug fixes and stability improvements
+
 ### v1.1.0
 - Day streak system
 - Offline progression
