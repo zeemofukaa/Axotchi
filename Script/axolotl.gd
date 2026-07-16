@@ -386,6 +386,14 @@ func _emit_critical() -> void:
 	_stop_bob()
 	update_animation()
 	emit_signal("entered_critical")
+	
+func _emit_sleeping() -> void:
+	_stop_bob()
+	update_animation()
+	$Control/SleepLabel.visible     = true
+	$Control/SleepBar.visible       = true
+	$Control/SleepBarShadow.visible = true
+	emit_signal("state_changed", State.SLEEPING)
 
 # --------------------
 # DAY STREAK
